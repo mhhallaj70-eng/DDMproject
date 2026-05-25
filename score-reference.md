@@ -3,6 +3,96 @@
 ## Actions (امتیاز هر اکشن)
 Watch=10 | Invite=500 | Comment=100 | GotView=1 | GotLike=1 | ClaimedScore=1
 
+## Coin Transaction Type Mapping (`user_coin_history.type`)
+> Source: کد `settings.go` (CoinHistory const) — تأیید با data ✓
+
+| type | direction | name (code) | تفسیر فارسی |
+|------|-----------|-------------|-------------|
+| 1 | EARN | DAILY_LOGIN | پاداش ورود روزانه |
+| 2 | EARN | SPINNER | جایزه چرخش |
+| 3 | EARN | CLAIM | دریافت Battle Pass / Level / Mission |
+| 4 | EARN | ADMIN | پاداش دستی ادمین |
+| 5 | EARN | BOX | جایزه باکس |
+| 6 | EARN | BUY_COIN | خرید سکه (پولی) |
+| 7 | EARN | CANCEL_REWARD_BY_USER | refund لغو جایزه توسط کاربر |
+| 8 | EARN | CANCEL_REWARD_BY_ADMIN | refund لغو جایزه توسط ادمین |
+| 9 | EARN | RECEIVE_COIN | دریافت Coin Transfer |
+| 10 | SPEND | SEND_COIN | ارسال Coin Transfer |
+| 11 | SPEND | REWARD | خرید جایزه از فروشگاه |
+| 12 | SPEND | LOTTERY | خرید بلیط قرعه‌کشی |
+| 13 | SPEND | TICKET | بلیط سینما (-15 ثابت) |
+| 14 | SPEND | PROFILE | تغییر تصویر پروفایل |
+| 15 | SPEND | RE_SPIN | چرخش مجدد اسپینر (CoinToSpin=3) |
+| 16 | EARN | LEADERBOARD | جایزه لیگ |
+| 17 | system | FORCE | استفاده سیستمی |
+
+## Action ID Mapping (`detail_scores.action`, `user_actions.action`)
+> Source: کد `settings.go` (LIKE_ACTION ... VERSION_ACTION)
+
+| id | name (code) | امتیاز پیش‌فرض | تفسیر |
+|----|-------------|----------------|-------|
+| 1 | LIKE_ACTION | - | لایک کردن |
+| 2 | COMMENT_ACTION | 100 | نظر دادن |
+| 3 | WATCH_ACTION | 10 | تماشای ویدیو |
+| 4 | INVITE_FRIENDS_ACTION | 500 | دعوت دوست |
+| 5 | SUBSCRIBE_ACTION | - | خرید اشتراک |
+| 6 | DAILY_VISIT_ACTION | 1..5 | ورود روزانه |
+| 7 | COMPLETE_PROFILE_ACTION | - | تکمیل پروفایل |
+| 8 | SPINNER_ACTION | - | چرخش اسپینر |
+| 9 | FIRST_LOGIN_ACTION | - | اولین ورود |
+| 10 | MARKET_ACTION | - | بازار (cafe-bazaar/myket/google) |
+| 11 | MEDAL_ACTION | - | کسب مدال |
+| 12 | GOT_VIEW_ACTION | 1 | بازدید خوردن ویدیو (Creator) |
+| 13 | GOT_LIKED_ACTION | 1 | لایک خوردن ویدیو (Creator) |
+| 14 | OPEN_LINK_ACTION | - | باز کردن لینک (One-time mission) |
+| 15 | UPLOAD_ACTION | - | آپلود ویدیو |
+| 16 | CLAIM_ACTION | 1 | دریافت ماموریت |
+| 17 | VERSION_ACTION | - | به‌روزرسانی نسخه |
+
+## User Reward Status (`user_rewards.status`)
+| id | name | فارسی |
+|----|------|-------|
+| 1 | FAILED | رد شده |
+| 2 | WAITING | در انتظار تایید |
+| 3 | ACCEPTED | تایید شده |
+| 4 | SENDING | در حال ارسال |
+| 5 | TAKEN | گرفته شده |
+| 6 | CANCELED_BY_USER | لغو توسط کاربر |
+| 7 | CANCELED_BY_ADMIN | لغو توسط ادمین |
+| 8 | DRAFT | پیش‌نویس |
+
+## Lottery Status (`lotteries.status`)
+1=IN_PROCESS | 2=SOON | 3=FINISHED | 4=HIDDEN
+
+## Reward Type (`rewards.type`)
+1=Single | 2=Multiple | 3=SingleVisible | 4=MultipleVisible | 5=SingleCode | 6=SingleVisibleCode
+
+## StepReward Type (`step_rewards.type`)
+1=free-coin | 2=sub-coin | 3=free-score | 4=sub-score | 5=free-box | 6=sub-box | 7=free-lottery | 8=sub-lottery | 9=free-spinner | 10=sub-spinner | 11=coin-overload | 12=score-overload
+
+## ConvertScore Type (`convert_scores.type`)
+1=score | 2=spinner | 3=admin | 4=buy-coin | 5=cancel-reward-by-user | 6=cancel-reward-by-admin | 7=leader-board | 8=battle-pass | 9=mission | 10=level | 11=box
+
+## Coin Transaction (`coin_transactions.type` و `.status`)
+- type: 1=transfer | 2=request
+- status: 1=waiting | 2=accepted | 3=canceled
+
+## User Role (`users.role`)
+1=admin | 2=editor | 3=league-editor | 4=reward-editor | 5=viewer | 6=shop-assistant
+
+## User Status
+1=ACTIVE | 2=SUSPENDED  
+status of `step_rewards`: 1=NOT_CLAIMED | 2=CLAIMED
+
+## DailyLogin Mode (settings)
+1=DISABLE | 2=VISITOR (نیاز به claim) | 3=CLAIM (خودکار)
+
+## InviteFriends Mode (settings)
+1=INVITED | 2=INVITER | 3=BOTH
+
+## Prize Type (level/box/spinner)
+1=COIN | 2=SCORE | 3=BOX | 4=LOTTERY | 5=SPINNER | 6=REWARD | 7=FEATURE
+
 ## Settings کلیدی
 - CoinToScore=100 (هر 100 امتیاز = 1 سکه)
 - CoinToSpin=3 | ScoreCoefficient=1 (VIP)
