@@ -558,7 +558,7 @@
       "type": "timeseries",
       "id": 9,
       "title": "Watch Hours per via (weekly)",
-      "description": "share هر محصول از کل watch time",
+      "description": "ساعت تماشای هفتگی به تفکیک محصول (VOD/Vlog/Cinema/TV/UGC) — stacked bars",
       "datasource": {
         "type": "grafana-clickhouse-datasource",
         "uid": "${DS_CLICKHOUSE}"
@@ -572,7 +572,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "SELECT toMonday(created_at) AS time, multiIf(via=1,'VOD',via=2,'Vlog',via=3,'Cinema',via=4,'TV',via=5,'UGC',toString(via)) AS product, round(sum(watch_duration) / 3600.0) AS hours FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration BETWEEN 10 AND 14400 AND $__timeFilter(created_at) GROUP BY time, product ORDER BY time, product",
+          "rawSql": "SELECT toMonday(created_at) AS time, round(sumIf(watch_duration, via=1) / 3600.0) AS VOD, round(sumIf(watch_duration, via=2) / 3600.0) AS Vlog, round(sumIf(watch_duration, via=3) / 3600.0) AS Cinema, round(sumIf(watch_duration, via=4) / 3600.0) AS TV, round(sumIf(watch_duration, via=5) / 3600.0) AS UGC FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration BETWEEN 10 AND 14400 AND $__timeFilter(created_at) GROUP BY time ORDER BY time",
           "format": 1,
           "queryType": "sql"
         }
@@ -586,12 +586,14 @@
               "mode": "normal",
               "group": "A"
             },
-            "barAlignment": 0
+            "barAlignment": 0,
+            "axisLabel": "Hours"
           },
-          "unit": "h",
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "decimals": 0
         }
       }
     },
@@ -653,7 +655,23 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "h"
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-GrYlRd"
+                }
               }
             ]
           }
@@ -680,7 +698,7 @@
       "type": "table",
       "id": 11,
       "title": "Weekly Cohort Retention (D1 / D7 / D30)",
-      "description": "هدف: D1=28-30% | D7=18-20% | D30=10-12%",
+      "description": "Classic retention (single-day) — D1/D7/D30 = % کاربر فعال دقیقاً روز N. Target: D1≈28-30, D7≈18-20, D30≈10-12",
       "datasource": {
         "type": "grafana-clickhouse-datasource",
         "uid": "${DS_CLICKHOUSE}"
@@ -694,7 +712,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "WITH cohort AS (SELECT user_id, min(toDate(created_at)) AS install_day FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' GROUP BY user_id), activity AS (SELECT we.user_id, c.install_day, dateDiff('day', c.install_day, toDate(we.created_at)) AS day_n FROM stats.watch_events we INNER JOIN cohort c ON we.user_id = c.user_id WHERE we.user_id != '' AND we.user_id != 'total' AND we.watch_duration >= 10 AND c.install_day >= today() - 90 AND c.install_day < today() - 30) SELECT toMonday(install_day) AS cohort_week, uniqExact(user_id) AS cohort_size, round(100 * uniqExactIf(user_id, day_n = 1) / uniqExact(user_id), 1) AS d1_pct, round(100 * uniqExactIf(user_id, day_n BETWEEN 1 AND 7) / uniqExact(user_id), 1) AS d7_pct, round(100 * uniqExactIf(user_id, day_n BETWEEN 1 AND 30) / uniqExact(user_id), 1) AS d30_pct FROM activity GROUP BY cohort_week ORDER BY cohort_week DESC",
+          "rawSql": "WITH cohort AS (  SELECT user_id, min(toDate(created_at)) AS install_day   FROM stats.watch_events   WHERE user_id != '' AND user_id != 'total'   GROUP BY user_id), activity AS (  SELECT we.user_id, c.install_day,          dateDiff('day', c.install_day, toDate(we.created_at)) AS day_n   FROM stats.watch_events we   INNER JOIN cohort c ON we.user_id = c.user_id   WHERE we.user_id != '' AND we.user_id != 'total'     AND we.watch_duration >= 10     AND c.install_day >= today() - 90     AND c.install_day < today() - 30) SELECT toMonday(install_day) AS cohort_week,        uniqExact(user_id) AS cohort_size,        round(100 * uniqExactIf(user_id, day_n = 1) / uniqExact(user_id), 1) AS d1_pct,        round(100 * uniqExactIf(user_id, day_n = 7) / uniqExact(user_id), 1) AS d7_pct,        round(100 * uniqExactIf(user_id, day_n = 30) / uniqExact(user_id), 1) AS d30_pct FROM activity GROUP BY cohort_week ORDER BY cohort_week DESC",
           "format": 1,
           "queryType": "sql"
         }
@@ -906,6 +924,124 @@
       }
     },
     {
+      "type": "table",
+      "id": 201,
+      "title": "VOD Cleanup Candidates (30d)",
+      "description": "VOD‌هایی که سن‌شون ≥۳۰ روزه ولی در ۳۰ روز اخیر <۵۰ یونیک viewer داشتن. مرتب‌شده بر اساس کم‌بازدیدترین. ⚠️ گروه‌بندی بر content_title — اگر دو ویدیو هم‌اسم باشن، ادغام می‌شن.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "WITH content_stats AS (SELECT content_title, min(toDate(created_at)) AS first_seen, uniqExactIf(user_id, created_at >= now() - INTERVAL 30 DAY) AS viewers_30d, round(sumIf(watch_duration, created_at >= now() - INTERVAL 30 DAY) / 3600.0, 1) AS hours_30d, round(avgIf(watch_duration, created_at >= now() - INTERVAL 30 DAY AND watch_duration >= 10)) AS avg_sec_30d, round(100 * countIf(watch_duration < 10 AND created_at >= now() - INTERVAL 30 DAY) / nullIf(countIf(created_at >= now() - INTERVAL 30 DAY), 0), 1) AS bounce_pct_30d FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND content_title != '' AND via = 1 AND created_at >= now() - INTERVAL 120 DAY GROUP BY content_title) SELECT content_title, first_seen, viewers_30d, hours_30d, avg_sec_30d, bounce_pct_30d FROM content_stats WHERE first_seen <= today() - 30 AND viewers_30d < 50 ORDER BY viewers_30d ASC, hours_30d ASC LIMIT 200"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "viewers_30d"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hours_30d"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_sec_30d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bounce_pct_30d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-GrYlRd"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": true,
+          "reducer": [
+            "count"
+          ]
+        }
+      }
+    },
+    {
       "type": "row",
       "id": 105,
       "title": "ROW 6 — Gamification (Postgres)",
@@ -913,7 +1049,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 64
       },
       "collapsed": false,
       "panels": []
@@ -931,7 +1067,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 65
       },
       "targets": [
         {
@@ -967,7 +1103,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 54
+        "y": 65
       },
       "targets": [
         {
@@ -1002,7 +1138,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 62
+        "y": 73
       },
       "targets": [
         {
@@ -1028,8 +1164,8 @@
     {
       "type": "table",
       "id": 16,
-      "title": "Reward Funnel (30d)",
-      "description": "1=Failed 2=Waiting 3=Accepted 4=Sending 5=Taken 6=CanceledByUser 7=CanceledByAdmin 8=Draft. درصد Taken بالا = سالم",
+      "title": "Reward Funnel (All Time)",
+      "description": "1=Failed 2=Waiting 3=Accepted 4=Sending 5=Taken 6=CanceledByUser 7=CanceledByAdmin 8=Draft. Snapshot وضعیت فعلی هر reward — کل تاریخ.",
       "datasource": {
         "type": "postgres",
         "uid": "${DS_POSTGRES}"
@@ -1038,12 +1174,12 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 62
+        "y": 73
       },
       "targets": [
         {
           "refId": "A",
-          "rawSql": "SELECT CASE status WHEN 1 THEN '1-Failed' WHEN 2 THEN '2-Waiting' WHEN 3 THEN '3-Accepted' WHEN 4 THEN '4-Sending' WHEN 5 THEN '5-Taken' WHEN 6 THEN '6-CanceledByUser' WHEN 7 THEN '7-CanceledByAdmin' WHEN 8 THEN '8-Draft' ELSE status::text END AS status_name, COUNT(*) AS reward_count, COUNT(DISTINCT channel_did) AS unique_users FROM public.user_rewards WHERE TO_TIMESTAMP(created_at) >= NOW() - INTERVAL '30 days' GROUP BY status ORDER BY status",
+          "rawSql": "SELECT CASE status WHEN 1 THEN '1-Failed' WHEN 2 THEN '2-Waiting' WHEN 3 THEN '3-Accepted' WHEN 4 THEN '4-Sending' WHEN 5 THEN '5-Taken' WHEN 6 THEN '6-CanceledByUser' WHEN 7 THEN '7-CanceledByAdmin' WHEN 8 THEN '8-Draft' ELSE status::text END AS status_name, COUNT(*) AS reward_count, COUNT(DISTINCT channel_did) AS unique_users FROM public.user_rewards GROUP BY status ORDER BY status",
           "format": "table"
         }
       ],
@@ -1090,7 +1226,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 70
+        "y": 81
       },
       "targets": [
         {
@@ -1142,7 +1278,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 70
+        "y": 81
       },
       "targets": [
         {
@@ -1179,7 +1315,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 78
+        "y": 89
       },
       "collapsed": false,
       "panels": []
@@ -1197,7 +1333,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 79
+        "y": 90
       },
       "targets": [
         {
@@ -1256,7 +1392,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 89
+        "y": 100
       },
       "collapsed": false,
       "panels": []
@@ -1274,7 +1410,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 90
+        "y": 101
       },
       "targets": [
         {
@@ -1314,7 +1450,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 90
+        "y": 101
       },
       "targets": [
         {
@@ -1364,7 +1500,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 98
+        "y": 109
       },
       "targets": [
         {
@@ -1395,8 +1531,8 @@
     {
       "type": "timeseries",
       "id": 23,
-      "title": "Payment Success Rate %",
-      "description": "هدف >70% — checkout completion (ACTIVE / non-draft attempts)",
+      "title": "Payment Success Rate % (Active Attempts)",
+      "description": "Active Attempt Conversion = SUCCESS / (SUCCESS + IN-FLIGHT + FAILURE). Success: 40,41,42,43,44. In-flight: 11,13,21 (PENDING/IN_PROGRESS). Failure: 31,32,53,54. حذف: DRAFT (12) — فقط کنجکاوی، و admin (51,52). هدف >70% — اگه پایین = abandonment وسط فرایند یا گیت‌وی ضعیف.",
       "datasource": {
         "type": "mysql",
         "uid": "${DS_MYSQL}"
@@ -1405,12 +1541,12 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 98
+        "y": 109
       },
       "targets": [
         {
           "refId": "A",
-          "rawSql": "SELECT DATE(FROM_UNIXTIME(created_at)) AS time, ROUND(100 * SUM(CASE WHEN status = 41 THEN 1 ELSE 0 END) / SUM(CASE WHEN status IN (41, 31, 11, 13, 21) THEN 1 ELSE 0 END), 1) AS success_pct FROM tbl_user_payment WHERE platform_id = 1 AND created_at >= $__unixEpochFrom() AND created_at <= $__unixEpochTo() AND status IN (41, 31, 11, 13, 21) GROUP BY time ORDER BY time",
+          "rawSql": "SELECT DATE(FROM_UNIXTIME(created_at)) AS time, ROUND(100 * SUM(CASE WHEN status IN (40, 41, 42, 43, 44) THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status IN (40, 41, 42, 43, 44, 11, 13, 21, 31, 32, 53, 54) THEN 1 ELSE 0 END), 0), 1) AS success_pct FROM tbl_user_payment WHERE platform_id = 1 AND created_at >= $__unixEpochFrom() AND created_at <= $__unixEpochTo() AND status IN (40, 41, 42, 43, 44, 11, 13, 21, 31, 32, 53, 54) GROUP BY time ORDER BY time",
           "format": "time_series"
         }
       ],
@@ -1455,7 +1591,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 98
+        "y": 109
       },
       "targets": [
         {
@@ -1542,7 +1678,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 106
+        "y": 117
       },
       "targets": [
         {
@@ -1598,7 +1734,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 106
+        "y": 117
       },
       "targets": [
         {
@@ -1628,7 +1764,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 114
+        "y": 125
       },
       "targets": [
         {
@@ -1679,7 +1815,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 122
+        "y": 133
       },
       "targets": [
         {
@@ -1739,6 +1875,387 @@
           "fields": "",
           "values": true
         }
+      }
+    },
+    {
+      "type": "table",
+      "id": 202,
+      "title": "VOD Cleanup Candidates (30d) — کاندیدای حذف",
+      "description": "محتوای VOD که ≥۳۰ روز روی پلتفرم بوده و در ۳۰ روز اخیر عملکرد ضعیف داشته. Action: viewers_30d <50 یا hours_30d <5 → بررسی برای حذف. bounce_pct >60 → thumbnail/title فریب‌دهنده یا ویدیو خراب.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 141
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "WITH content_stats AS (  SELECT content_title,          min(toDate(created_at)) AS first_seen,          uniqExactIf(user_id, created_at >= now() - INTERVAL 30 DAY) AS viewers_30d,          round(sumIf(watch_duration, created_at >= now() - INTERVAL 30 DAY)/3600.0, 1) AS hours_30d,          round(avgIf(watch_duration, created_at >= now() - INTERVAL 30 DAY)) AS avg_sec_30d,          round(100 * countIf(watch_duration < 10 AND created_at >= now() - INTERVAL 30 DAY)                    / nullIf(countIf(created_at >= now() - INTERVAL 30 DAY), 0), 1) AS bounce_pct_30d   FROM stats.watch_events   WHERE via = 1     AND user_id != '' AND user_id != 'total'     AND content_title != ''     AND created_at >= now() - INTERVAL 120 DAY   GROUP BY content_title) SELECT content_title, first_seen, viewers_30d, hours_30d, avg_sec_30d, bounce_pct_30d FROM content_stats WHERE first_seen <= today() - 30   AND (viewers_30d < 50 OR hours_30d < 5) ORDER BY viewers_30d ASC, hours_30d ASC LIMIT 200"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "viewers_30d"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hours_30d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_sec_30d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bounce_pct_30d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 40
+                    },
+                    {
+                      "color": "red",
+                      "value": 60
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "type": "row",
+      "id": 107,
+      "title": "ROW 9 — Acquisition (New Users — first-seen)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 153
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 50,
+      "title": "New Users / Day — first-seen (با baseline ۳۰ روزه)",
+      "description": "کاربر جدید = اولین created_at در stats.watch_events با watch_duration ≥ ۱۰s. ترکیب signup + اولین فعالیت معنادار. baseline = میانگین ۳۰ روز قبلی (rolling).",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 18,
+        "x": 0,
+        "y": 154
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "WITH first_seen AS (SELECT user_id, toDate(MIN(created_at)) AS first_day FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= 10 GROUP BY user_id), daily AS (SELECT first_day AS day, count() AS new_users FROM first_seen WHERE first_day >= toDate(now()) - INTERVAL 180 DAY GROUP BY first_day) SELECT toDateTime(day) AS time, new_users, round(avg(new_users) OVER (ORDER BY day ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING)) AS baseline_30d FROM daily WHERE $__timeFilter(toDateTime(day)) ORDER BY day"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "auto"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline_30d"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [10, 10]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "id": 51,
+      "title": "Today New Users",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 154
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "WITH first_seen AS (SELECT user_id, toDate(MIN(created_at)) AS first_day FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= 10 AND created_at >= toDate(now()) - INTERVAL 60 DAY GROUP BY user_id) SELECT count() AS new_users_today FROM first_seen WHERE first_day = toDate(now())"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 100},
+              {"color": "green", "value": 200}
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "type": "stat",
+      "id": 52,
+      "title": "Last 7d Avg vs 30d Baseline — Lift %",
+      "description": "اگر >۰: رشد. <۰: افت. منطقی >۱۰٪ یعنی اتفاقی افتاده (کمپین، event، یا انتشار جدید).",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 158
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "WITH first_seen AS (SELECT user_id, toDate(MIN(created_at)) AS first_day FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= 10 AND created_at >= toDate(now()) - INTERVAL 60 DAY GROUP BY user_id), daily AS (SELECT first_day AS day, count() AS cnt FROM first_seen GROUP BY first_day) SELECT round(100 * (avgIf(cnt, day >= toDate(now()) - 7 AND day < toDate(now())) - avgIf(cnt, day >= toDate(now()) - 37 AND day < toDate(now()) - 7)) / nullIf(avgIf(cnt, day >= toDate(now()) - 37 AND day < toDate(now()) - 7), 0), 1) AS lift_pct FROM daily"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": -5},
+              {"color": "green", "value": 5},
+              {"color": "blue", "value": 20}
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "type": "table",
+      "id": 53,
+      "title": "New Users — Daily Breakdown (last 45d)",
+      "description": "جدول روزانه با مقایسه vs میانگین ۳۰ روز قبل. ستون lift_pct سیگنال کمپین، event، یا spike.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 163
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "WITH first_seen AS (SELECT user_id, toDate(MIN(created_at)) AS first_day FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= 10 AND created_at >= toDate(now()) - INTERVAL 90 DAY GROUP BY user_id), daily AS (SELECT first_day AS day, count() AS new_users FROM first_seen GROUP BY first_day), with_baseline AS (SELECT day, new_users, round(avg(new_users) OVER (ORDER BY day ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING)) AS baseline_30d FROM daily) SELECT day, new_users, baseline_30d, round(100 * (new_users - baseline_30d) / nullIf(baseline_30d, 0), 1) AS lift_pct FROM with_baseline WHERE day >= toDate(now()) - 45 ORDER BY day DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "lift_pct"},
+            "properties": [
+              {"id": "unit", "value": "percent"},
+              {"id": "decimals", "value": 1},
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "orange", "value": -10},
+                    {"color": "transparent", "value": -5},
+                    {"color": "green", "value": 10},
+                    {"color": "blue", "value": 30}
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "new_users"},
+            "properties": [
+              {"id": "decimals", "value": 0}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "baseline_30d"},
+            "properties": [
+              {"id": "decimals", "value": 0}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
       }
     }
   ],

@@ -1,62 +1,124 @@
-# DDM Project
+# DDM (دیدیمون) — Product Knowledge Base
 
-پلتفرم ویدیویی دیدیمون با سیستم گیمیفیکیشن — اسناد، KPI framework، dashboard، آرشیو مکالمات.
+پلتفرم ویدیویی ایرانی با سیستم گیمیفیکیشن.
 
-## 📂 ساختار
+> **برای هر کسی که با این ریپو آشنا نیست:** از `DDM_Project_Instruction.md` شروع کن — همه چیز درباره محصول، تیم، استراتژی، و قراردادهای کاری آنجاست.
+
+---
+
+## ⚡ وضعیت فعلی (ژوئن ۲۰۲۶)
+
+| موضوع | وضعیت |
+|-------|--------|
+| **تیم** | ۴ نفر — Maintenance Mode (Tech Lead + Backend + Android + PM) |
+| **هدف ۱۴۰۵** | Sweat existing assets — هیچ feature جدید بدون restoration تیم |
+| **درآمد baseline** | ۱۷۵M تومان/ماه (بعد از حذف Whale plan) |
+| **هدف ۶ ماهه** | ۵۰۰M+ تومان/ماه (با fix trial funnel) |
+| **بزرگ‌ترین مشکل** | Trial→Paid: 2.53% (benchmark 5-15%) |
+| **Attribution** | ⛔ PAUSED تا restoration تیم |
+
+---
+
+## 📂 ساختار ریپو
 
 ```
 DDM/
-├── score-reference.md              ⭐ مرجع گیمیفیکیشن (action, coin type, status enum)
-├── ddm-business-dashboard.json     ⭐ Grafana dashboard (28 پنل، 8 row)
+├── DDM_Project_Instruction.md   ⭐ شروع از اینجا — context کامل محصول
+├── score-reference.md           ⭐ مرجع فشرده سیستم امتیاز (enums، IDs، configs)
+│
 ├── docs/
-│   ├── kpi-framework-v2.md         ⭐ Framework فعلی (NSM 210M→420M، 7 KPI)
-│   ├── databases-reference.md      ⭐ 3 DB schema (ClickHouse + Postgres + MySQL)
-│   ├── features/                   مستندات فیچرها (18 فایل)
-│   ├── prd/                        Master PRD
-│   ├── 1404/                       برنامه سال 1404
-│   └── archive/                    KPI v1 و فاز‌های قبلی
-├── scripts/                        PowerShell scripts (git، sync)
-└── conversations/                  آرشیو مکالمات Claude
+│   ├── databases-reference.md   ⭐ Schema سه دیتابیس (ClickHouse + Postgres + MySQL)
+│   ├── kpi-framework-v3.md      ⭐ KPI فعلی (Trial-Centric، ۳۱ مه ۲۰۲۶)
+│   ├── prd/
+│   │   └── master-prd.md        PRD جامع محصول (۲۴ مه ۲۰۲۶)
+│   ├── features/                Spec فیچرها (timeless — بدون داده سالانه)
+│   ├── strategy/                اسناد استراتژیک ۱۴۰۵
+│   ├── reports/                 گزارش‌های تحلیلی فصلی
+│   ├── revenue/                 داده‌های درآمدی (cafebazaar، myket)
+│   ├── queries/                 کوئری‌های مرجع
+│   ├── 1404/                    تحلیل‌های سال ۱۴۰۴ (داده-محور)
+│   │   ├── overview.md          خلاصه سال ۱۴۰۴
+│   │   ├── features/            تحلیل per-feature با داده‌های ۱۴۰۴
+│   │   └── ...
+│   └── archive/                 فایل‌های منسوخ (KPI v1 و v2، فازهای قبلی)
+│
+├── dashboards/                  Grafana dashboard JSONs + SQL schemas
+├── scripts/                     PowerShell (git sync، conversations)
+└── conversations/               آرشیو مکالمات Claude
 ```
 
-## 🎯 اسناد اصلی (شروع از اینجا)
+> **تفاوت `docs/features/` و `docs/1404/features/`:**
+> - `docs/features/` = spec بی‌زمان هر فیچر (چه هست، چطور کار می‌کند)
+> - `docs/1404/features/` = تحلیل عملکرد آن فیچر در سال ۱۴۰۴ با داده‌های واقعی
 
-| فایل | محتوا |
-|------|-------|
-| [score-reference.md](score-reference.md) | همه enum های Score DB: action، coin type، reward status، voucher، lottery |
-| [docs/kpi-framework-v2.md](docs/kpi-framework-v2.md) | Framework فعلی KPI (recalibrated 25 May 2026) |
-| [docs/databases-reference.md](docs/databases-reference.md) | Schema سه دیتابیس + identity bridge |
+---
 
-## 📊 KPI Snapshot (May 2026)
+## 🎯 اسناد کلیدی
 
-| متریک | Baseline | Target 6M |
-|--------|----------|-----------|
-| Net Monthly Revenue ⭐ | 210M تومان | 420M (2x) |
-| Checkout Completion 🚨 | 9.5% | 25% |
+| فایل | محتوا | آخرین آپدیت |
+|------|-------|-------------|
+| [DDM_Project_Instruction.md](DDM_Project_Instruction.md) | Context کامل: محصول، تیم، KPI، قراردادهای کاری | ژوئن ۲۰۲۶ |
+| [score-reference.md](score-reference.md) | همه enums و IDs سیستم امتیاز | sync with codebase |
+| [docs/kpi-framework-v3.md](docs/kpi-framework-v3.md) | Framework KPI فعلی (Trial-Centric) | ۳۱ مه ۲۰۲۶ |
+| [docs/databases-reference.md](docs/databases-reference.md) | Schema PostgreSQL + ClickHouse + MySQL | —— |
+| [docs/prd/master-prd.md](docs/prd/master-prd.md) | PRD جامع تمام فیچرها | ۲۴ مه ۲۰۲۶ |
+| [docs/strategy/revenue-plan-1405-reality-check.md](docs/strategy/revenue-plan-1405-reality-check.md) | Reality check پلن درآمدی CEO | ۲ ژوئن ۲۰۲۶ |
+| [docs/strategy/attribution-measurement-1405.md](docs/strategy/attribution-measurement-1405.md) | استراتژی attribution (⛔ PAUSED) | ۲ ژوئن ۲۰۲۶ |
+| [docs/reports/quarterly-1404-report.md](docs/reports/quarterly-1404-report.md) | گزارش فصلی ۱۴۰۴ | —— |
+
+---
+
+## 📊 KPI Snapshot (v3 — Trial-Centric)
+
+```
+Net Monthly Revenue: 175M تومان (baseline) → 500M+ هدف ۶ ماه
+
+Trial Funnel (بزرگ‌ترین leak):
+  1,711 Trial DRAFT
+      ↓ 19% activation
+    ~325 activated
+      ↓ 2.53% paid (benchmark: 5-15%)
+      ~8 paid  ←  اینجا باید ۵× بشه
+```
+
+| KPI | Baseline | هدف ۶M |
+|-----|----------|--------|
+| Net Monthly Revenue ⭐ | 175M تومان | 500M+ |
+| Trial→Paid Conversion 🚨 | 2.53% | 8%+ |
+| Checkout Completion | 12.8% | 25% |
 | Sub Paid Conversion | 1.14% | 2.5% |
-| ARPPU (Sub Paid) | 775K تومان | 1M |
-| Repeat Purchase Rate 🚨 | 11.9% | 20% |
-| D7 Retention | ~12% | 18% |
+| ARPPU (Sub Paid) | 775K تومان | 1M+ |
+| Plan 2 (3ماهه) Champion | 36.5% conv | حفظ |
 
-**اولویت 6 ماه**: Fix Checkout → ARPPU → Retention → Acquisition
+**اولویت استراتژیک**: Fix Trial→Paid → Trial Activation UX → Catalog Simplify → Real Checkout → ARPPU
 
-## 📁 فهرست فیچرها (docs/features/)
+---
 
-**محصولات اصلی**: VOD (main) | UGC (آس‌مون) | Cinema | Magazine | TV Live Stream
+## 🎮 فیچرهای محصول
 
-**Gamification**: Coin Transfer | Coin Purchase | Daily Login | Daily Missions | One-Time Missions | Spinner | Medals | League | Golden Path | User Leveling | Battle Pass
+**محصولات اصلی**: VOD | Asmoon (UGC) | Cinema | Magazine | Live TV
 
-**Other**: Profile | Referral | Shop Rewards | Age Rating
+**Gamification (کامل و فعال)**:
+Score/Level | Daily Login | Daily Missions | One-Time Missions | Battle Pass | Golden Path | Spinner | League | Medals | Shop | Coin Transfer | Coin Purchase | Referral (رفیق‌بازی)
 
-## 📜 فهرست مکالمات
+**Other**: Profile | Age Rating
 
-| تاریخ | عنوان | فایل |
-|------|------|------|
-| 2026-05 | DDM Score Configuration Setup | [اینجا](conversations/2026-05_ddm-score-configuration.md) |
-| 2026-05 | Customize Claude to your role | [اینجا](conversations/2026-05_customize-claude-role.md) |
-| 2026-05 | Point Claude at any folder | [اینجا](conversations/2026-05_point-claude-at-folder.md) |
-| 2026-05 | Schedule a recurring task | [اینجا](conversations/2026-05_schedule-recurring-task.md) |
+> ⚠️ **قانون داده**: مقادیر DB در **ریال** است — برای تومان همیشه ÷ ۱۰
+
+---
+
+## 📜 مکالمات آرشیو
+
+| تاریخ | موضوع |
+|-------|-------|
+| 2026-05 | [DDM Score Configuration](conversations/2026-05_ddm-score-configuration.md) |
+| 2026-05 | [Customize Claude Role](conversations/2026-05_customize-claude-role.md) |
+| 2026-05 | [Point Claude at Folder](conversations/2026-05_point-claude-at-folder.md) |
+| 2026-05 | [Schedule Recurring Task](conversations/2026-05_schedule-recurring-task.md) |
+
+---
 
 ## 🔄 نحوه به‌روزرسانی
 
-مکالمات جدید از طریق scheduled task به‌طور خودکار اضافه و کامیت می‌شوند (`scripts/sync-conversations.ps1`).
+- مکالمات جدید از طریق `scripts/sync-conversations.ps1` کامیت می‌شوند
+- بعد از هر سشن کاری با Claude: فایل مربوطه در `docs/` آپدیت + `DDM_Project_Instruction.md` sync شود

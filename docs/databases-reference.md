@@ -136,7 +136,7 @@ ClickHouse.stats.watch_events.user_id  ←→  PostgreSQL.score.*.channel_did
 **نام container**: `subscription-service-mysql-1`
 **حجم اصلی**: tbl_user_payment=197K | tbl_voucher=112K | tbl_user=58K
 **Timestamp**: تمام `created_at`، `expired_at` — int (Unix epoch ثانیه)
-**Currency**: تومان
+**Currency**: ⚠️ **ریال** (تأیید‌شده با کاربر 1 خرداد 1405). برای نمایش به تومان: `amount / 10`. قبلاً اشتباهاً «تومان» نوشته شده بود.
 
 ### جداول اصلی
 
@@ -224,32 +224,34 @@ AND (JSON_EXTRACT(details, '$.environment') IS NULL
 
 ### Active Plans (Snapshot — May 2026)
 
-**اشتراک (price.type=1, status=41)**:
+**اشتراک (price.type=1, status=41)** — قیمت‌ها در تومان (DB ÷ ۱۰):
 | ID | نام | تومان | duration |
 |----|-----|-------|----------|
-| 2 | 3 ماهه | 882K | 3 |
-| 6 | 1 ساله | 3,528K | 12 |
-| 19 | 1 ماهه | 980K | 1 |
-| 20 | 6 ماهه | 1,764K | 6 |
-| 21 | 1 ماهه 50% تخفیف | 175K | 1 (status=40) |
+| 2 | 3 ماهه | 88.2K | 3 |
+| 6 | 1 ساله | 352.8K | 12 |
+| 19 | 1 ماهه | 98K | 1 |
+| 20 | 6 ماهه | 176.4K | 6 |
+| 21 | 1 ماهه 50% تخفیف | 17.5K | 1 (status=40) |
+| 32 | high-value | 1,000K (1M) | special |
 
-**Coin Packs (price.type=2, status=41)**:
+**Coin Packs (price.type=2, status=41)** — قیمت‌ها در تومان:
 | ID | محتوا | تومان | تومان/سکه |
 |----|-------|-------|-----------|
-| 9 | 50 دی‌کوین | 100K | 2,000 |
-| 11 | 250 دی‌کوین | 400K | 1,600 |
-| 12 | 750 دی‌کوین | 990K | 1,320 |
-| 13 | 500 دی‌کوین | 750K | 1,500 |
+| 9 | 50 دی‌کوین | 10K | 200 |
+| 11 | 250 دی‌کوین | 40K | 160 |
+| 12 | 750 دی‌کوین | 99K | 132 |
+| 13 | 500 دی‌کوین | 75K | 150 |
 
 ### Quick Insights (Snapshot May 2026 — تصحیح‌شده)
 
 > ⚠️ قبلاً اشتباهاً status=12 رو موفق فرض کردیم. status=12 پیش‌نویس است. موفق = status=41.
 
-**Revenue واقعی (status=41, amount>0)**:
-- ~705 تراکنش موفق/ماه (نه 3,082!)
-- ~214M تومان/ماه (نه 2.6 میلیارد)
-- ARPPU ≈ 304K تومان/payer
-- ARPU خام ≈ 13K تومان/MAU (خیلی پایین)
+**Revenue واقعی (status=41, amount>0)** — ⚠️ اعداد قبلی ۱۰× بزرگ‌نمایی داشت (DB در ریال است):
+- ~705 تراکنش موفق/ماه
+- ~21.4M تومان/ماه gross (نه 214M — تقسیم بر ۱۰)
+- ARPPU gross ≈ 30K تومان/payer (نه 304K)
+- ARPU gross ≈ 1.3K تومان/MAU
+- **منبع authoritative برای NET**: گزارش رسمی Cafebazaar xlsx + Myket CSV (نه DB amount)
 
 **Voucher (status=41, amount=0)**:
 - ~392/ماه voucher activate شده

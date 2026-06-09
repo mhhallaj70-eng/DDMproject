@@ -1,0 +1,558 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_CLICKHOUSE",
+      "label": "ClickHouse",
+      "description": "ClickHouse — stats.watch_events",
+      "type": "datasource",
+      "pluginId": "grafana-clickhouse-datasource",
+      "pluginName": "ClickHouse"
+    },
+    {
+      "name": "DS_MYSQL",
+      "label": "MySQL (Subscription)",
+      "description": "MySQL — tbl_user_payment, tbl_price, tbl_gateway. amount = ریال",
+      "type": "datasource",
+      "pluginId": "mysql",
+      "pluginName": "MySQL"
+    },
+    {
+      "name": "DS_POSTGRES",
+      "label": "PostgreSQL (Score + B2B)",
+      "description": "PostgreSQL — business.b2b_revenue manual B2B entries",
+      "type": "datasource",
+      "pluginId": "postgres",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "grafana-clickhouse-datasource", "name": "ClickHouse", "version": "1.0.0" },
+    { "type": "datasource", "id": "mysql", "name": "MySQL", "version": "1.0.0" },
+    { "type": "datasource", "id": "postgres", "name": "PostgreSQL", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "barchart", "name": "Bar chart", "version": "" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" }
+  ],
+  "title": "DDM Quarterly KPI Dashboard",
+  "description": "رصد فصلی KPIهای DDM — Daily Pulse، In-App Revenue، Trial Funnel، B2B، Content، Health Alerts. منبع: quarterly-1404-report.md + KPI v3.",
+  "tags": ["ddm", "quarterly", "kpi", "business"],
+  "timezone": "Asia/Tehran",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 38,
+  "version": 1,
+  "id": null,
+  "uid": null,
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "time": { "from": "now-90d", "to": "now" },
+  "refresh": "30m",
+  "templating": {
+    "list": [
+      {
+        "name": "gateway",
+        "type": "custom",
+        "label": "Gateway / درگاه",
+        "query": "All : 2,3 , Cafebazaar : 2 , Myket : 3",
+        "current": { "text": "All", "value": "2,3" },
+        "options": [
+          { "text": "All", "value": "2,3", "selected": true },
+          { "text": "Cafebazaar", "value": "2", "selected": false },
+          { "text": "Myket", "value": "3", "selected": false }
+        ],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "via",
+        "type": "custom",
+        "label": "Product / محصول",
+        "query": "All : 1,2,3,4,5 , VOD : 1 , Magazine : 2 , Cinema : 3 , TV : 4 , UGC : 5",
+        "current": { "text": "All", "value": "1,2,3,4,5" },
+        "options": [
+          { "text": "All", "value": "1,2,3,4,5", "selected": true },
+          { "text": "VOD", "value": "1", "selected": false },
+          { "text": "Magazine", "value": "2", "selected": false },
+          { "text": "Cinema", "value": "3", "selected": false },
+          { "text": "TV", "value": "4", "selected": false },
+          { "text": "UGC", "value": "5", "selected": false }
+        ],
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "watch_min",
+        "type": "constant",
+        "label": "Min watch sec (active def)",
+        "query": "60",
+        "current": { "text": "60", "value": "60" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row", "id": 1000, "title": "ROW 1 — Daily Pulse (نبض روزانه)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false, "panels": []
+    },
+    {
+      "type": "timeseries", "id": 1,
+      "title": "DAU — Identified Active Users",
+      "description": "کاربر unique با watch ≥ ${watch_min} ثانیه. anonymous حذف.",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "targets": [{
+        "refId": "A", "format": 1, "queryType": "sql",
+        "rawSql": "SELECT toStartOfDay(created_at) AS time, uniqExact(user_id) AS dau FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= ${watch_min} AND $__timeFilter(created_at) GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 20, "lineWidth": 2, "pointSize": 4 },
+          "color": { "mode": "palette-classic" },
+          "unit": "short"
+        }
+      },
+      "options": { "legend": { "showLegend": true }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "timeseries", "id": 2,
+      "title": "Watch Hours + Avg Min/User",
+      "description": "کل ساعت تماشا روزانه + میانگین دقیقه per user",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "targets": [{
+        "refId": "A", "format": 1, "queryType": "sql",
+        "rawSql": "SELECT toStartOfDay(created_at) AS time, round(sum(watch_duration) / 3600.0) AS total_hours, round((sum(watch_duration) / 60.0) / nullIf(uniqExact(user_id), 0), 1) AS avg_min_per_user FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration BETWEEN 10 AND 14400 AND $__timeFilter(created_at) GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "lineWidth": 2 },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "total_hours" }, "properties": [ { "id": "unit", "value": "h" } ] },
+          { "matcher": { "id": "byName", "options": "avg_min_per_user" }, "properties": [ { "id": "unit", "value": "m" }, { "id": "custom.axisPlacement", "value": "right" } ] }
+        ]
+      },
+      "options": { "legend": { "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "stat", "id": 3,
+      "title": "DAU امروز",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 9 },
+      "targets": [{
+        "refId": "A", "format": 0, "queryType": "sql",
+        "rawSql": "SELECT uniqExact(user_id) AS dau FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= ${watch_min} AND created_at >= toStartOfDay(now())"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 2000 },
+            { "color": "green", "value": 3000 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value_and_name" }
+    },
+    {
+      "type": "stat", "id": 4,
+      "title": "MAU (28d rolling)",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 9 },
+      "targets": [{
+        "refId": "A", "format": 0, "queryType": "sql",
+        "rawSql": "SELECT uniqExact(user_id) AS mau FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= ${watch_min} AND created_at >= now() - INTERVAL 28 DAY"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 20000 },
+            { "color": "green", "value": 30000 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "type": "stat", "id": 5,
+      "title": "Stickiness DAU/MAU %",
+      "description": "هدف >۲۰٪",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 9 },
+      "targets": [{
+        "refId": "A", "format": 0, "queryType": "sql",
+        "rawSql": "SELECT round(100 * uniqExactIf(user_id, created_at >= toStartOfDay(now())) / nullIf(uniqExactIf(user_id, created_at >= now() - INTERVAL 28 DAY), 0), 1) AS stickiness FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= ${watch_min}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 15 },
+            { "color": "green", "value": 20 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "type": "row", "id": 1001, "title": "ROW 2 — In-App Revenue (درآمد in-app)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "collapsed": false, "panels": []
+    },
+    {
+      "type": "timeseries", "id": 6,
+      "title": "Daily Paid Revenue (NET، Toman)",
+      "description": "Gross/۱۰ (ریال→تومان) × ۰.۷۸۷ (پس از کارمزد ۲۱.۳٪). status=41، platform_id=1، بدون test.sandbox.",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [{
+        "refId": "A", "format": "time_series",
+        "rawSql": "SELECT DATE(FROM_UNIXTIME(up.created_at)) AS time, ROUND(SUM(up.amount) / 10 * 0.787) AS net_toman FROM tbl_user_payment up WHERE up.platform_id = 1 AND up.status = 41 AND up.gateway_id IN (${gateway:csv}) AND (JSON_EXTRACT(up.details,'$.environment') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(up.details,'$.environment')) != 'test.sandbox') AND up.created_at >= $__unixEpochFrom() AND up.created_at <= $__unixEpochTo() GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1 },
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "legend": { "showLegend": true }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "timeseries", "id": 7,
+      "title": "Daily Paid Transactions",
+      "description": "تعداد تراکنش‌های موفق",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [{
+        "refId": "A", "format": "time_series",
+        "rawSql": "SELECT DATE(FROM_UNIXTIME(up.created_at)) AS time, COUNT(*) AS txn FROM tbl_user_payment up WHERE up.platform_id = 1 AND up.status = 41 AND up.gateway_id IN (${gateway:csv}) AND (JSON_EXTRACT(up.details,'$.environment') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(up.details,'$.environment')) != 'test.sandbox') AND up.created_at >= $__unixEpochFrom() AND up.created_at <= $__unixEpochTo() GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short", "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "barchart", "id": 8,
+      "title": "Cafebazaar vs Myket — NET Toman (روزانه stacked)",
+      "description": "تفکیک درگاه — Cafebazaar/Myket. NET = gross/۱۰ × ۰.۷۸۷",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "targets": [{
+        "refId": "A", "format": "time_series",
+        "rawSql": "SELECT DATE(FROM_UNIXTIME(up.created_at)) AS time, CASE up.gateway_id WHEN 2 THEN 'Cafebazaar' WHEN 3 THEN 'Myket' ELSE 'Other' END AS gw, ROUND(SUM(up.amount)/10 * 0.787) AS net_toman FROM tbl_user_payment up WHERE up.platform_id = 1 AND up.status = 41 AND (JSON_EXTRACT(up.details,'$.environment') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(up.details,'$.environment')) != 'test.sandbox') AND up.created_at >= $__unixEpochFrom() AND up.created_at <= $__unixEpochTo() GROUP BY time, gw ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "stacking": { "mode": "normal", "group": "A" } },
+          "unit": "short", "decimals": 0, "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "stacking": "normal", "orientation": "vertical", "showValue": "never", "legend": { "showLegend": true, "displayMode": "list" } }
+    },
+    {
+      "type": "table", "id": 9,
+      "title": "Per-Plan Revenue Distribution",
+      "description": "Toman NET، Payers، ARPPU",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "targets": [{
+        "refId": "A", "format": "table",
+        "rawSql": "SELECT p.name AS plan, COUNT(*) AS payments, COUNT(DISTINCT up.user_id) AS payers, ROUND(SUM(up.amount)/10 * 0.787) AS net_toman, ROUND(SUM(up.amount)/10 * 0.787 / NULLIF(COUNT(DISTINCT up.user_id),0)) AS arppu FROM tbl_user_payment up JOIN tbl_price p ON up.price_id = p.id WHERE up.platform_id = 1 AND up.status = 41 AND up.gateway_id IN (${gateway:csv}) AND (JSON_EXTRACT(up.details,'$.environment') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(up.details,'$.environment')) != 'test.sandbox') AND up.created_at >= $__unixEpochFrom() AND up.created_at <= $__unixEpochTo() GROUP BY p.id, p.name ORDER BY net_toman DESC"
+      }],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "center" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "net_toman" }, "properties": [ { "id": "unit", "value": "short" }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "color", "value": { "mode": "continuous-GrYlRd" } } ] },
+          { "matcher": { "id": "byName", "options": "arppu" }, "properties": [ { "id": "unit", "value": "short" } ] }
+        ]
+      }
+    },
+    {
+      "type": "row", "id": 1002, "title": "ROW 3 — Trial Funnel (قیف ترایال)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "collapsed": false, "panels": []
+    },
+    {
+      "type": "timeseries", "id": 10,
+      "title": "Trial DRAFTs Daily",
+      "description": "تراکنش‌های ایجاد شده برای ترایال (status=12 DRAFT، plan شامل sub_7d یا trial)",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 31 },
+      "targets": [{
+        "refId": "A", "format": "time_series",
+        "rawSql": "SELECT DATE(FROM_UNIXTIME(up.created_at)) AS time, COUNT(*) AS drafts FROM tbl_user_payment up JOIN tbl_price p ON up.price_id = p.id WHERE up.platform_id = 1 AND up.status = 12 AND (p.name LIKE '%sub_7d%' OR p.name LIKE '%trial%') AND up.created_at >= $__unixEpochFrom() AND up.created_at <= $__unixEpochTo() GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "fillOpacity": 70 },
+          "unit": "short", "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "timeseries", "id": 11,
+      "title": "Trial Activation % Daily",
+      "description": "DRAFT → status=41. هدف >۸۰٪ — اگه پایین = friction in payment",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 31 },
+      "targets": [{
+        "refId": "A", "format": "time_series",
+        "rawSql": "SELECT DATE(FROM_UNIXTIME(up.created_at)) AS time, ROUND(100 * SUM(CASE WHEN up.status = 41 THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN up.status IN (12,41) THEN 1 ELSE 0 END),0), 1) AS activation_pct FROM tbl_user_payment up JOIN tbl_price p ON up.price_id = p.id WHERE up.platform_id = 1 AND (p.name LIKE '%sub_7d%' OR p.name LIKE '%trial%') AND up.status IN (12, 41) AND up.created_at >= $__unixEpochFrom() AND up.created_at <= $__unixEpochTo() GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 20 },
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red" },
+            { "color": "yellow", "value": 60 },
+            { "color": "green", "value": 80 }
+          ]}
+        }
+      }
+    },
+    {
+      "type": "stat", "id": 12,
+      "title": "Trial → Paid % (cohort 90d)",
+      "description": "از کاربرانی که trial فعال کردن، چند درصد تا ۹۰ روز بعد plan paid خریدن. KPI v3: target Trial→Paid ≥ ۵٪",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 31 },
+      "targets": [{
+        "refId": "A", "format": "table",
+        "rawSql": "WITH trial_users AS (SELECT DISTINCT up.user_id, MIN(up.created_at) AS trial_at FROM tbl_user_payment up JOIN tbl_price p ON up.price_id = p.id WHERE up.platform_id = 1 AND up.status = 41 AND (p.name LIKE '%sub_7d%' OR p.name LIKE '%trial%') AND up.created_at >= UNIX_TIMESTAMP(NOW() - INTERVAL 180 DAY) AND up.created_at <= UNIX_TIMESTAMP(NOW() - INTERVAL 90 DAY) GROUP BY up.user_id), paid_after AS (SELECT DISTINCT t.user_id FROM trial_users t JOIN tbl_user_payment up2 ON up2.user_id = t.user_id JOIN tbl_price p2 ON up2.price_id = p2.id WHERE up2.status = 41 AND p2.name NOT LIKE '%sub_7d%' AND p2.name NOT LIKE '%trial%' AND up2.amount > 0 AND up2.created_at > t.trial_at AND up2.created_at <= t.trial_at + 90*86400) SELECT (SELECT COUNT(*) FROM trial_users) AS trial_cohort, (SELECT COUNT(*) FROM paid_after) AS converted, ROUND(100 * (SELECT COUNT(*) FROM paid_after) / NULLIF((SELECT COUNT(*) FROM trial_users),0), 2) AS trial_to_paid_pct"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 3 },
+            { "color": "green", "value": 5 }
+          ]}
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "trial_to_paid_pct" }, "properties": [ { "id": "unit", "value": "percent" } ] }
+        ]
+      },
+      "options": { "colorMode": "background", "textMode": "value_and_name", "orientation": "vertical", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true } }
+    },
+    {
+      "type": "row", "id": 1003, "title": "ROW 4 — B2B Revenue (ISP + Rubika، manual)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+      "collapsed": false, "panels": []
+    },
+    {
+      "type": "barchart", "id": 13,
+      "title": "ISP Traffic Revenue (MTN + MCI، ماهانه)",
+      "description": "از business.b2b_revenue. ورود دستی هر ماه.",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "targets": [{
+        "refId": "A", "format": "table",
+        "rawSql": "SELECT month_jalali AS month, SUM(CASE WHEN source='ISP_MCI' THEN amount_toman ELSE 0 END) AS MCI, SUM(CASE WHEN source='ISP_MTN' THEN amount_toman ELSE 0 END) AS MTN FROM business.b2b_revenue WHERE source LIKE 'ISP_%' AND month_date >= NOW() - INTERVAL '18 months' GROUP BY month_jalali, month_date ORDER BY month_date"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "stacking": { "mode": "normal", "group": "A" } },
+          "unit": "short", "decimals": 0, "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "orientation": "vertical", "xField": "month", "showValue": "auto", "stacking": "normal" }
+    },
+    {
+      "type": "barchart", "id": 14,
+      "title": "Rubika Content Revenue (ماهانه)",
+      "description": "از business.b2b_revenue",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "targets": [{
+        "refId": "A", "format": "table",
+        "rawSql": "SELECT month_jalali AS month, SUM(amount_toman) AS rubika FROM business.b2b_revenue WHERE source = 'Rubika' AND month_date >= NOW() - INTERVAL '18 months' GROUP BY month_jalali, month_date ORDER BY month_date"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "blue" } ] }
+        }
+      },
+      "options": { "orientation": "vertical", "xField": "month", "showValue": "auto" }
+    },
+    {
+      "type": "piechart", "id": 15,
+      "title": "Total Revenue Mix — Last 12 Months",
+      "description": "سهم هر جریان از کل درآمد ۱۲ ماه اخیر. In-App از MySQL، B2B از Postgres.",
+      "datasource": { "type": "postgres", "uid": "${DS_POSTGRES}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 48 },
+      "targets": [{
+        "refId": "A", "format": "table",
+        "rawSql": "SELECT 'ISP Traffic' AS stream, SUM(amount_toman) AS toman FROM business.b2b_revenue WHERE source LIKE 'ISP_%' AND month_date >= NOW() - INTERVAL '12 months' UNION ALL SELECT 'Rubika Content', SUM(amount_toman) FROM business.b2b_revenue WHERE source = 'Rubika' AND month_date >= NOW() - INTERVAL '12 months'"
+      }],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "palette-classic" } }
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["percent", "name"],
+        "legend": { "displayMode": "table", "values": ["value", "percent"] },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^toman$/", "values": false }
+      }
+    },
+    {
+      "type": "row", "id": 1004, "title": "ROW 5 — Content Engagement (تعامل محتوا)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 56 },
+      "collapsed": false, "panels": []
+    },
+    {
+      "type": "timeseries", "id": 16,
+      "title": "Watch Hours per Product (weekly stacked)",
+      "description": "ساعت تماشای هفتگی به تفکیک via",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 57 },
+      "targets": [{
+        "refId": "A", "format": 1, "queryType": "sql",
+        "rawSql": "SELECT toMonday(created_at) AS time, round(sumIf(watch_duration, via=1) / 3600.0) AS VOD, round(sumIf(watch_duration, via=2) / 3600.0) AS Magazine, round(sumIf(watch_duration, via=3) / 3600.0) AS Cinema, round(sumIf(watch_duration, via=4) / 3600.0) AS TV, round(sumIf(watch_duration, via=5) / 3600.0) AS UGC FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration BETWEEN 10 AND 14400 AND $__timeFilter(created_at) GROUP BY time ORDER BY time"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "stacking": { "mode": "normal", "group": "A" }, "axisLabel": "Hours" },
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "table", "id": 17,
+      "title": "Top 10 Content — Last 30 Days",
+      "description": "پربازدیدترین‌ها بر اساس ساعت تماشا",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 57 },
+      "targets": [{
+        "refId": "A", "format": 1, "queryType": "sql",
+        "rawSql": "SELECT content_title, multiIf(via=1,'VOD',via=2,'Magazine',via=3,'Cinema',via=4,'TV',via=5,'UGC',toString(via)) AS product, uniqExact(user_id) AS viewers, round(sum(watch_duration) / 3600.0, 1) AS hours FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= 10 AND content_title != '' AND created_at >= now() - INTERVAL 30 DAY GROUP BY content_title, product ORDER BY hours DESC LIMIT 10"
+      }],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "hours" }, "properties": [ { "id": "unit", "value": "h" }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "color", "value": { "mode": "continuous-GrYlRd" } } ] }
+        ]
+      }
+    },
+    {
+      "type": "stat", "id": 18,
+      "title": "New Content Released This Month",
+      "description": "عناوین VOD که first_seen آن‌ها در این ماه میلادی است. خروجی از ClickHouse.",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 65 },
+      "targets": [{
+        "refId": "A", "format": 0, "queryType": "sql",
+        "rawSql": "SELECT count() AS new_titles FROM (SELECT content_title, min(toDate(created_at)) AS first_seen FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND content_title != '' AND via = 1 GROUP BY content_title HAVING first_seen >= toStartOfMonth(now()))"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 10 },
+            { "color": "green", "value": 25 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "orientation": "horizontal" }
+    },
+    {
+      "type": "row", "id": 1005, "title": "ROW 6 — Health Alerts (هشدارهای سلامت)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 71 },
+      "collapsed": false, "panels": []
+    },
+    {
+      "type": "stat", "id": 19,
+      "title": "Anonymous Ratio % (7d)",
+      "description": "گپ instrumentation. هشدار قرمز >۴۵٪",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 72 },
+      "targets": [{
+        "refId": "A", "format": 0, "queryType": "sql",
+        "rawSql": "SELECT round(100 * countIf(user_id = '' OR user_id = 'total') / nullIf(count(),0), 1) AS anonymous_pct FROM stats.watch_events WHERE created_at >= now() - INTERVAL 7 DAY"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 30 },
+            { "color": "red", "value": 45 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "type": "stat", "id": 20,
+      "title": "Cart Abandonment % (30d)",
+      "description": "DRAFT بدون paid → ۱۰۰٪ − Success Rate. هشدار >۷۰٪",
+      "datasource": { "type": "mysql", "uid": "${DS_MYSQL}" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 72 },
+      "targets": [{
+        "refId": "A", "format": "table",
+        "rawSql": "SELECT ROUND(100 - 100 * SUM(CASE WHEN status = 41 THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status IN (12, 11, 13, 21, 31, 32, 41, 53, 54) THEN 1 ELSE 0 END),0), 1) AS abandonment_pct FROM tbl_user_payment WHERE platform_id = 1 AND created_at >= UNIX_TIMESTAMP(NOW() - INTERVAL 30 DAY)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 50 },
+            { "color": "red", "value": 70 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }
+    },
+    {
+      "type": "stat", "id": 21,
+      "title": "DAU WoW Change %",
+      "description": "تغییر DAU هفته جاری vs هفته قبل. هشدار قرمز <-۲۰٪",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 72 },
+      "targets": [{
+        "refId": "A", "format": "table", "queryType": "sql",
+        "rawSql": "WITH wk AS (SELECT uniqExactIf(user_id, created_at >= now() - INTERVAL 7 DAY) AS this_week, uniqExactIf(user_id, created_at >= now() - INTERVAL 14 DAY AND created_at < now() - INTERVAL 7 DAY) AS last_week FROM stats.watch_events WHERE user_id != '' AND user_id != 'total' AND watch_duration >= 60) SELECT round(100 * (this_week - last_week) / nullIf(last_week, 0), 1) AS wow_pct FROM wk"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": -20 },
+            { "color": "green", "value": 0 }
+          ]}
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }
+    }
+  ]
+}
